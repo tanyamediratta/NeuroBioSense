@@ -94,5 +94,23 @@ Install required dependencies:
 
 ```bash
 pip install streamlit torch torchvision opencv-python numpy pandas
+```
+---
+## Outputs
 
+Video Emotion  
+Biosignal Emotion  
+Match / Mismatch  
+Fusion Insight  
+Estimated Purchase Intent  
+Confidence Charts  
+---
+### Data Linking Method
 
+video_id → hash → biosignal slice
+Ensures reproducibility
+Not equivalent to real timestamp alignment
+---
+### Conclusion
+
+NeuroBioSense highlights the gap between intended advertisement emotion and actual human response, enabling deeper insights into consumer behavior.
