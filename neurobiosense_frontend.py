@@ -115,21 +115,20 @@ def status_chip(path: Path) -> str:
 def emotion_group(class_id: int) -> str:
     code = ID_TO_EMOTION[int(class_id)]
 
-    if code in {"J", "SU"}:
+    if code == "N":
+        return "neutral"
+
+    if code == "J":
         return "positive"
 
-    if code in {"A", "D", "F", "SA"}:
-        return "negative"
-
-    return "neutral"
+    return "negative"
 
 
 def fusion_insight(video_pred: int, bio_pred: int) -> tuple[str, str]:
     video_code = ID_TO_EMOTION[int(video_pred)]
     bio_code = ID_TO_EMOTION[int(bio_pred)]
 
-    negative = {"A", "D", "F", "SA"}
-    positive = {"J", "SU"}
+    negative = {"A", "D", "F", "SA", "SU"}
 
     if video_code == bio_code:
         return (
@@ -140,19 +139,7 @@ def fusion_insight(video_pred: int, bio_pred: int) -> tuple[str, str]:
     if video_code == "J" and bio_code in negative:
         return (
             "Fake Happiness",
-            "The advertisement appears joyful, but the biosignal response suggests stress, sadness, fear, anger, or discomfort.",
-        )
-
-    if video_code in positive and bio_code in negative:
-        return (
-            "Positive Masking",
-            "The video shows a positive emotion, but the viewer's physiological response appears negative.",
-        )
-
-    if video_code in negative and bio_code == "J":
-        return (
-            "Unexpected Positive Response",
-            "The video shows a negative emotion, but the viewer's biosignal response appears positive.",
+            "The advertisement appears joyful, but the biosignal response suggests stress, shock, sadness, fear, anger, or discomfort.",
         )
 
     if video_code == "N" and bio_code in negative:
@@ -164,7 +151,13 @@ def fusion_insight(video_pred: int, bio_pred: int) -> tuple[str, str]:
     if video_code in negative and bio_code == "N":
         return (
             "Detached Response",
-            "The video shows strong emotion, but the viewer's biosignal response appears neutral.",
+            "The video shows a strong or high-arousal emotion, but the viewer's biosignal response appears neutral.",
+        )
+
+    if video_code in negative and bio_code == "J":
+        return (
+            "Unexpected Positive Response",
+            "The video shows a negative or high-arousal emotion, but the viewer's biosignal response appears positive.",
         )
 
     if video_code == "J" and bio_code == "N":
@@ -173,7 +166,7 @@ def fusion_insight(video_pred: int, bio_pred: int) -> tuple[str, str]:
             "The advertisement appears happy, but the viewer's biosignal response appears neutral.",
         )
 
-    if video_code == "N" and bio_code in positive:
+    if video_code == "N" and bio_code == "J":
         return (
             "Positive Internal Response",
             "The video appears neutral, but the viewer's biosignal response suggests positive engagement.",
@@ -188,24 +181,24 @@ def fusion_insight(video_pred: int, bio_pred: int) -> tuple[str, str]:
 def purchase_intent_estimate(video_pred: int, bio_pred: int) -> tuple[str, str]:
     video_group = emotion_group(video_pred)
     bio_group = emotion_group(bio_pred)
-    match = video_pred == bio_pred
+    match = video_group == bio_group
 
     if match and bio_group == "positive":
         return (
             "Likely to Buy",
-            "The viewer's biosignal response is positive and aligned with the advertisement emotion.",
+            "The viewer's biosignal response is positive and aligned with the advertisement emotion group.",
         )
 
     if video_group == "positive" and bio_group == "negative":
         return (
             "Unlikely to Buy",
-            "The advertisement appears positive, but the viewer's biosignal response is negative, indicating emotional dissonance.",
+            "The advertisement appears positive, but the viewer's biosignal response is negative or high-arousal, indicating emotional dissonance.",
         )
 
     if bio_group == "negative":
         return (
             "Unlikely to Buy",
-            "The viewer's biosignal response suggests discomfort, stress, fear, anger, sadness, or rejection.",
+            "The viewer's biosignal response suggests discomfort, stress, shock, fear, anger, sadness, or rejection.",
         )
 
     if bio_group == "neutral" and video_group == "positive":
@@ -218,12 +211,6 @@ def purchase_intent_estimate(video_pred: int, bio_pred: int) -> tuple[str, str]:
         return (
             "Maybe / Moderate Intent",
             "The viewer shows a positive internal response even though the advertisement appears neutral.",
-        )
-
-    if bio_group == "positive" and video_group == "negative":
-        return (
-            "Maybe / Curiosity Response",
-            "The viewer shows positive physiological engagement despite a negative video emotion.",
         )
 
     if match and bio_group == "neutral":
@@ -384,7 +371,7 @@ def probability_table(probs: np.ndarray) -> pd.DataFrame:
 st.title("NeuroBioSense Emotion Dissonance Detection")
 st.caption(
     "3D CNN for advertisement video emotion, 1D CNN for biosignal emotion, "
-    "fusion insight, and estimated purchase intent"
+    "rule-based fusion insight, and estimated purchase intent"
 )
 
 with st.sidebar:
@@ -392,16 +379,17 @@ with st.sidebar:
     st.write(f"Device: `{DEVICE}`")
     st.write(f"Video model: **{status_chip(VIDEO_MODEL_PATH)}**")
     st.write(f"Biosignal model: **{status_chip(BIO_MODEL_PATH)}**")
-    st.write(f"Fusion model: **{status_chip(FUSION_MODEL_PATH)}**")
+    st.write(f"Fusion artifact: **{status_chip(FUSION_MODEL_PATH)}**")
     st.write(f"Normalization: **{status_chip(BIO_MEAN_PATH)} / {status_chip(BIO_STD_PATH)}**")
 
     st.divider()
     st.header("Project Metrics")
     st.metric("Video 3D CNN", "49.8%")
     st.metric("Biosignal 1D CNN", "40.7%")
-    st.metric("Fusion Model", "74.5%")
+    st.metric("Rule-Based Fusion", "83.78%")
     st.caption(
-        "Purchase intent is estimated using a rule-based layer because the dataset does not include purchase labels."
+        "Final fusion uses affective grouping: Neutral = N, Positive = J, "
+        "Negative/High-Arousal = A, D, F, SA, SU."
     )
 
 col_left, col_right = st.columns([1, 1])
@@ -424,7 +412,8 @@ with col_right:
     st.write(
         "The video model predicts the emotion shown in the advertisement. "
         "The biosignal model predicts the viewer's internal emotion from physiological signals. "
-        "The app compares both predictions to show match/mismatch, fusion insight, and estimated purchase intent."
+        "A rule-based fusion layer groups emotions into Neutral, Positive, and Negative/High-Arousal "
+        "to display match/mismatch, fusion insight, and estimated purchase intent."
     )
 
 st.divider()
@@ -434,7 +423,10 @@ if run_btn:
         with st.spinner("Running video and biosignal models..."):
             video_pred, bio_pred, video_probs, bio_probs = predict_emotions(video_file, bio_file)
 
-        match = video_pred == bio_pred
+        video_group = emotion_group(video_pred)
+        bio_group = emotion_group(bio_pred)
+        match = video_group == bio_group
+
         difference_result = "Match" if match else "Mismatch"
         insight_title, insight_text = fusion_insight(video_pred, bio_pred)
         purchase_title, purchase_text = purchase_intent_estimate(video_pred, bio_pred)
@@ -456,6 +448,12 @@ if run_btn:
         m3.metric("Difference", difference_result)
         m4.metric("Fusion Insight", insight_title)
         m5.metric("Purchase Intent", purchase_title)
+
+        st.subheader("Affective Grouping")
+        st.write(
+            f"Video group: **{video_group.title()}** | "
+            f"Biosignal group: **{bio_group.title()}**"
+        )
 
         st.subheader("Fusion Insight")
         if match:
@@ -496,9 +494,9 @@ st.subheader("Submission Notes")
 st.write(
     "Saved PyTorch models are reused from `.pt` files, so retraining is not required during the demo. "
     "The biosignal model shown here is the improved sliding-window 1D CNN trained directly on the full "
-    "4-Hertz biosignal dataset. Fusion insight is generated by comparing the independent video and "
-    "biosignal predictions. Estimated purchase intent is rule-based because the dataset does not contain "
-    "actual purchase/no-purchase labels."
+    "4-Hertz biosignal dataset. The final fusion output uses a rule-based affective grouping layer, "
+    "which achieved 83.78% accuracy against the original seven-class match/mismatch labels. "
+    "Estimated purchase intent is rule-based because the dataset does not contain actual purchase/no-purchase labels."
 )
 
 if METADATA_PATH.exists():
