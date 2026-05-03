@@ -1,0 +1,31 @@
+{
+  "root": "/content/drive/MyDrive/NeuroBioSense_Dataset/NeuroBioSense",
+  "output_dir": "/content/drive/MyDrive/NeuroBioSense_Outputs",
+  "models": {
+    "video_model": "video_3dcnn_emotion.pt",
+    "bio_model": "bio_1dcnn_emotion.pt",
+    "fusion_model": "fusion_3dcnn_1dcnn_difference.pt"
+  },
+  "emotion_map": {
+    "N": 0,
+    "A": 1,
+    "D": 2,
+    "F": 3,
+    "J": 4,
+    "SA": 5,
+    "SU": 6
+  },
+  "bio_columns": [
+    "BVP",
+    "EDA",
+    "TEMP",
+    "X",
+    "Y",
+    "Z"
+  ],
+  "n_frames": 16,
+  "frame_size": 112,
+  "bio_seq_len": 128,
+  "train_videos": 1034,
+  "test_videos": 259
+}
